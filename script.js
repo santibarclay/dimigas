@@ -72,50 +72,57 @@ const observer = new IntersectionObserver((entries) => {
 const animatedElements = document.querySelectorAll('.problema-card, .valor-card, .que-hacemos-content, .fundador-content');
 animatedElements.forEach(el => observer.observe(el));
 
-// Contact Form Handling
+// Contact Form Handling with Rate Limiting
 const contactForm = document.getElementById('contactForm');
+const RATE_LIMIT_KEY = 'dimigas_form_last_submit';
+const RATE_LIMIT_DURATION = 60000; // 1 minuto en milisegundos
 
 contactForm.addEventListener('submit', async (e) => {
     e.preventDefault();
 
-    // Get form data
-    const formData = {
-        nombre: document.getElementById('nombre').value,
-        empresa: document.getElementById('empresa').value,
-        email: document.getElementById('email').value,
-        telefono: document.getElementById('telefono').value,
-        mensaje: document.getElementById('mensaje').value
-    };
+    // Check rate limit
+    const lastSubmitTime = localStorage.getItem(RATE_LIMIT_KEY);
+    const currentTime = Date.now();
 
-    // Show success message
-    showFormMessage('Gracias por tu mensaje. Nos pondremos en contacto contigo pronto.', 'success');
+    if (lastSubmitTime && (currentTime - parseInt(lastSubmitTime)) < RATE_LIMIT_DURATION) {
+        const remainingSeconds = Math.ceil((RATE_LIMIT_DURATION - (currentTime - parseInt(lastSubmitTime))) / 1000);
+        showFormMessage(`Por favor, esperá ${remainingSeconds} segundos antes de enviar otro mensaje.`, 'error');
+        return;
+    }
 
-    // Reset form
-    contactForm.reset();
+    // Disable submit button
+    const submitButton = contactForm.querySelector('button[type="submit"]');
+    const originalButtonText = submitButton.textContent;
+    submitButton.disabled = true;
+    submitButton.textContent = 'Enviando...';
 
-    // Log form data (in production, you would send this to a server)
-    console.log('Datos del formulario:', formData);
+    try {
+        // Submit form using Formspree
+        const formData = new FormData(contactForm);
+        const response = await fetch(contactForm.action, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'Accept': 'application/json'
+            }
+        });
 
-    // Here you would typically send the data to your backend
-    // Example:
-    // try {
-    //     const response = await fetch('/api/contact', {
-    //         method: 'POST',
-    //         headers: {
-    //             'Content-Type': 'application/json',
-    //         },
-    //         body: JSON.stringify(formData)
-    //     });
-    //
-    //     if (response.ok) {
-    //         showFormMessage('Gracias por tu mensaje. Nos pondremos en contacto contigo pronto.', 'success');
-    //         contactForm.reset();
-    //     } else {
-    //         showFormMessage('Hubo un error al enviar tu mensaje. Por favor, intenta nuevamente.', 'error');
-    //     }
-    // } catch (error) {
-    //     showFormMessage('Hubo un error al enviar tu mensaje. Por favor, intenta nuevamente.', 'error');
-    // }
+        if (response.ok) {
+            showFormMessage('¡Gracias por tu mensaje! Nos pondremos en contacto contigo pronto.', 'success');
+            contactForm.reset();
+            // Set rate limit timestamp
+            localStorage.setItem(RATE_LIMIT_KEY, currentTime.toString());
+        } else {
+            showFormMessage('Hubo un error al enviar tu mensaje. Por favor, intentá nuevamente.', 'error');
+        }
+    } catch (error) {
+        showFormMessage('Hubo un error al enviar tu mensaje. Por favor, intentá nuevamente.', 'error');
+        console.error('Form submission error:', error);
+    } finally {
+        // Re-enable submit button
+        submitButton.disabled = false;
+        submitButton.textContent = originalButtonText;
+    }
 });
 
 function showFormMessage(message, type) {
