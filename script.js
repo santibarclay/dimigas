@@ -76,8 +76,9 @@ animatedElements.forEach(el => observer.observe(el));
 const contactForm = document.getElementById('contactForm');
 const RATE_LIMIT_KEY = 'dimigas_form_last_submit';
 const RATE_LIMIT_DURATION = 60000; // 1 minuto en milisegundos
+const CONTACT_EMAIL = 'franciscooliverawhyte@hotmail.com';
 
-contactForm.addEventListener('submit', async (e) => {
+contactForm.addEventListener('submit', (e) => {
     e.preventDefault();
 
     // Check rate limit
@@ -90,39 +91,39 @@ contactForm.addEventListener('submit', async (e) => {
         return;
     }
 
-    // Disable submit button
-    const submitButton = contactForm.querySelector('button[type="submit"]');
-    const originalButtonText = submitButton.textContent;
-    submitButton.disabled = true;
-    submitButton.textContent = 'Enviando...';
+    // Get form data
+    const nombre = document.getElementById('nombre').value;
+    const empresa = document.getElementById('empresa').value;
+    const email = document.getElementById('email').value;
+    const telefono = document.getElementById('telefono').value;
+    const mensaje = document.getElementById('mensaje').value;
 
-    try {
-        // Submit form using Formspree
-        const formData = new FormData(contactForm);
-        const response = await fetch(contactForm.action, {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'Accept': 'application/json'
-            }
-        });
+    // Build email content
+    const subject = `Contacto desde web - ${empresa}`;
+    const body = `Nombre: ${nombre}
+Empresa: ${empresa}
+Email: ${email}
+Teléfono: ${telefono}
 
-        if (response.ok) {
-            showFormMessage('¡Gracias por tu mensaje! Nos pondremos en contacto contigo pronto.', 'success');
-            contactForm.reset();
-            // Set rate limit timestamp
-            localStorage.setItem(RATE_LIMIT_KEY, currentTime.toString());
-        } else {
-            showFormMessage('Hubo un error al enviar tu mensaje. Por favor, intentá nuevamente.', 'error');
-        }
-    } catch (error) {
-        showFormMessage('Hubo un error al enviar tu mensaje. Por favor, intentá nuevamente.', 'error');
-        console.error('Form submission error:', error);
-    } finally {
-        // Re-enable submit button
-        submitButton.disabled = false;
-        submitButton.textContent = originalButtonText;
-    }
+Mensaje:
+${mensaje}`;
+
+    // Create mailto link
+    const mailtoLink = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+    // Open email client
+    window.location.href = mailtoLink;
+
+    // Set rate limit timestamp
+    localStorage.setItem(RATE_LIMIT_KEY, currentTime.toString());
+
+    // Show success message
+    showFormMessage('Se abrirá tu cliente de email para enviar el mensaje.', 'success');
+
+    // Reset form after a delay
+    setTimeout(() => {
+        contactForm.reset();
+    }, 1000);
 });
 
 function showFormMessage(message, type) {
